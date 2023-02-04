@@ -1,23 +1,30 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
-import { AuthDto } from './dto';
-import * as argon from 'argon2';
+import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime';
+import { User } from '@prisma/client';
+import { PrismaService } from './../prisma/prisma.service';
+import * as argon from 'argon2';
+import { AuthDto } from './dto';
 
 @Injectable()
 export class AuthService {
-  constructor(private prisma: PrismaService) {}
-  async signup(dto: AuthDto) {
+  constructor(
+    private prisma: PrismaService,
+    private jwt: JwtService,
+    private config: ConfigService,
+  ) {}
+  async signup(dto: AuthDto): Promise<{ access_token: string }> | never {
     const hashedPassword = await argon.hash(dto.password);
     try {
       const user = await this.prisma.user.create({
         data: {
-          email: dto.email,
+          username: dto.username,
           password: hashedPassword,
         },
       });
       delete user.password;
-      return user;
+      return this.signToken(user);
     } catch (e) {
       if (e instanceof PrismaClientKnownRequestError) {
         if (e.code === 'P2002') {
@@ -26,20 +33,33 @@ export class AuthService {
       }
     }
   }
-  async signin(dto: AuthDto) {
+  async signin(dto: AuthDto): Promise<{ access_token: string }> | never {
     const user = await this.prisma.user.findUnique({
       where: {
-        email: dto.email,
+        username: dto.username,
       },
     });
     const valid = await argon.verify(user.password, dto.password);
     if (!user || !valid) {
       throw new ForbiddenException('Invalid credentials');
     }
-    delete user.password;
-    return user;
+    return this.signToken(user);
   }
-  async resetDb() {
+
+  async signToken(user: User): Promise<{ access_token: string }> {
+    const payload = {
+      username: user.username,
+      sub: user.id,
+    };
+    return {
+      access_token: await this.jwt.signAsync(payload, {
+        expiresIn: '1d',
+        secret: this.config.get('JWT_SECRET'),
+      }),
+    };
+  }
+
+  async resetDb(): Promise<{ message: 'ok' }> {
     await this.prisma.resetDb();
     return { message: 'ok' };
   }
