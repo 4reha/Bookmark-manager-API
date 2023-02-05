@@ -12,8 +12,6 @@ export class PrismaService extends PrismaClient {
         },
       },
     });
-    // console.log('PrismaService: ', config.get('DATABASE_URL'));
-    // console.log(process.env.DATABASE_URL);
   }
   async resetDb() {
     await this.bookmark.deleteMany({});
