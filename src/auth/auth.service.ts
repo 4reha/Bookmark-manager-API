@@ -39,8 +39,11 @@ export class AuthService {
         username: dto.username,
       },
     });
+    if (!user) {
+      throw new ForbiddenException('Invalid credentials');
+    }
     const valid = await argon.verify(user.password, dto.password);
-    if (!user || !valid) {
+    if (!valid) {
       throw new ForbiddenException('Invalid credentials');
     }
     return this.signToken(user);
@@ -57,10 +60,5 @@ export class AuthService {
         secret: this.config.get('JWT_SECRET'),
       }),
     };
-  }
-
-  async resetDb(): Promise<{ message: 'ok' }> {
-    await this.prisma.resetDb();
-    return { message: 'ok' };
   }
 }

@@ -17,10 +17,4 @@ export class AuthController {
   signin(@Body() dto: AuthDto) {
     return this.authService.signin(dto);
   }
-
-  @HttpCode(HttpStatus.OK)
-  @Post('reset')
-  reset() {
-    return this.authService.resetDb();
-  }
 }
